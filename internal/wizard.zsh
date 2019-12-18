@@ -1,22 +1,20 @@
-#!/usr/bin/env zsh
-
 emulate -L zsh
 setopt noaliases
 
 () {
-setopt extended_glob no_prompt_{bang,subst} prompt_{cr,percent,sp} typeset_silent
+setopt extended_glob no_prompt_{bang,subst} prompt_percent typeset_silent
 zmodload zsh/langinfo
 if [[ ${langinfo[CODESET]:-} != (utf|UTF)(-|)8 ]]; then
   local LC_ALL=${${(@M)$(locale -a):#*.(utf|UTF)(-|)8}[1]:-en_US.UTF-8}
 fi
 
-typeset -g __p9k_root_dir
-typeset -gi force=0
+zmodload -F zsh/files b:zf_mv b:zf_rm
+
+local -i force=0
 
 local opt
-while getopts 'd:f' opt; do
+while getopts 'f' opt; do
   case $opt in
-    d)  __p9k_root_dir=$OPTARG;;
     f)  force=1;;
     +f) force=0;;
     \?) return 1;;
@@ -28,55 +26,70 @@ if (( OPTIND <= ARGC )); then
   return 1
 fi
 
-: ${__p9k_root_dir:=${0:h:h:A}}
+local -ri force
 
-typeset -gr __p9k_root_dir
-typeset -gri force
+local -r font_base_url='https://github.com/romkatv/dotfiles-public/raw/master/.local/share/fonts/NerdFonts'
+local -ri wizard_columns=$((COLUMNS < 80 ? COLUMNS : 80))
 
-source $__p9k_root_dir/internal/configure.zsh || return
+local -ri prompt_indent=2
 
-typeset -r font_base_url='https://github.com/romkatv/dotfiles-public/raw/master/.local/share/fonts/NerdFonts'
-typeset -ri wizard_columns=$((COLUMNS < 80 ? COLUMNS : 80))
+local -ra bg_color=(240 238 236 234)
+local -ra frame_color=(244 242 240 238)
+local -ra sep_color=(248 246 244 242)
+local -ra prefix_color=(250 248 246 244)
 
-typeset -ri prompt_indent=2
+local -r left_circle='\uE0B6'
+local -r right_circle='\uE0B4'
+local -r left_arc='\uE0B7'
+local -r right_arc='\uE0B5'
+local -r left_triangle='\uE0B2'
+local -r right_triangle='\uE0B0'
+local -r left_angle='\uE0B3'
+local -r right_angle='\uE0B1'
+local -r down_triangle='\uE0BC'
+local -r up_triangle='\uE0BA'
+local -r fade_in='░▒▓'
+local -r fade_out='▓▒░'
+local -r vertical_bar='|'
+local -r slanted_bar='\uE0BD'
 
-typeset -ra bg_color=(240 238 236 234)
-typeset -ra frame_color=(244 242 240 238)
-typeset -ra sep_color=(248 246 244 242)
-typeset -ra prefix_color=(250 248 246 244)
-
-typeset -r left_circle='\uE0B6'
-typeset -r right_circle='\uE0B4'
-typeset -r left_arc='\uE0B7'
-typeset -r right_arc='\uE0B5'
-typeset -r left_triangle='\uE0B2'
-typeset -r right_triangle='\uE0B0'
-typeset -r left_angle='\uE0B3'
-typeset -r right_angle='\uE0B1'
-typeset -r down_triangle='\uE0BC'
-typeset -r up_triangle='\uE0BA'
-typeset -r fade_in='░▒▓'
-typeset -r fade_out='▓▒░'
-typeset -r vertical_bar='|'
-typeset -r slanted_bar='\uE0BD'
-
-typeset -ra lean_left=(
-  '' '${extra_icons[1]:+$extra_icons[1] }%31F$extra_icons[2]%B%39F~%b%31F/%B%39Fsrc%b%f $prefixes[1]%76F$extra_icons[3]master%f '
-  '' '%76F❯%f █'
+local -ra lean_left=(
+  '%$frame_color[$color]F╭─ ' '${extra_icons[1]:+$extra_icons[1] }%31F$extra_icons[2]%B%39F~%b%31F/%B%39Fsrc%b%f $prefixes[1]%76F$extra_icons[3]master%f '
+  '%$frame_color[$color]F╰─ ' '%76F❯%f ${buffer:-█}'
 )
 
-typeset -ra lean_right=(
-  ' $prefixes[2]%101F$extra_icons[4]3s%f${show_time:+ $prefixes[3]%66F$extra_icons[5]16:23:42%f}' ''
+local -ra lean_right=(
+  ' $prefixes[2]%101F$extra_icons[4]5s%f${show_time:+ $prefixes[3]%66F$extra_icons[5]16:23:42%f}' ' %$frame_color[$color]F─╮%f'
+  '' ' %$frame_color[$color]F─╯%f'
+)
+
+local -ra classic_left=(
+  '%$frame_color[$color]F╭─' '%F{$bg_color[$color]}$left_tail%K{$bg_color[$color]} ${extra_icons[1]:+$extra_icons[1]%K{$bg_color[$color]\} %$sep_color[$color]F$left_subsep%f }%31F$extra_icons[2]%B%39F~%b%K{$bg_color[$color]}%31F/%B%39Fsrc%b%K{$bg_color[$color]} %$sep_color[$color]F$left_subsep%f %$prefix_color[$color]F$prefixes[1]%76F$extra_icons[3]master %k%$bg_color[$color]F$left_head%f'
+  '%$frame_color[$color]F╰─' '%f ${buffer:-█}'
+)
+
+local -ra classic_right=(
+  '%$bg_color[$color]F$right_head%K{$bg_color[$color]}%f %$prefix_color[$color]F$prefixes[2]%101F5s $extra_icons[4]${show_time:+%$sep_color[$color]F$right_subsep %$prefix_color[$color]F$prefixes[3]%66F16:23:42 $extra_icons[5]}%k%F{$bg_color[$color]}$right_tail%f' '%$frame_color[$color]F─╮%f'
+  '' '%$frame_color[$color]F─╯%f'
+)
+
+local -ra pure_left=(
+  '' '%4F~/src%f %242Fmaster%f %3F5s%f'
+  '' '%5F❯%f ${buffer:-█}'
+)
+
+local -ra pure_right=(
+  '' ''
   '' ''
 )
 
-typeset -ra classic_left=(
-  '%$frame_color[$color]F╭─' '%F{$bg_color[$color]}$left_tail%K{$bg_color[$color]} ${extra_icons[1]:+$extra_icons[1]%K{$bg_color[$color]\} %$sep_color[$color]F$left_subsep%f }%31F$extra_icons[2]%B%39F~%b%K{$bg_color[$color]}%31F/%B%39Fsrc%b%K{$bg_color[$color]} %$sep_color[$color]F$left_subsep%f %$prefix_color[$color]F$prefixes[1]%76F$extra_icons[3]master %k%$bg_color[$color]F$left_head%f'
-  '%$frame_color[$color]F╰─' '%f █'
+local -ra rainbow_left=(
+  '%$frame_color[$color]F╭─' '%F{${${extra_icons[1]:+7}:-4}}$left_tail${extra_icons[1]:+%K{7\} $extra_icons[1] %K{4\}%7F$left_sep}%K{4}%254F $extra_icons[2]%B%255F~%b%K{4}%254F/%B%255Fsrc%b%K{4} %K{2}%4F$left_sep %0F$prefixes[1]$extra_icons[3]master %k%2F$left_head%f'
+  '%$frame_color[$color]F╰─' '%f ${buffer:-█}'
 )
 
-typeset -ra classic_right=(
-  '%$bg_color[$color]F$right_head%K{$bg_color[$color]}%f %$prefix_color[$color]F$prefixes[2]%101F3s $extra_icons[4]${show_time:+%$sep_color[$color]F$right_subsep %$prefix_color[$color]F$prefixes[3]%66F16:23:42 $extra_icons[5]}%k%F{$bg_color[$color]}$right_tail%f' '%$frame_color[$color]F─╮%f'
+local -ra rainbow_right=(
+  '%3F$right_head%K{3} %0F$prefixes[2]5s $extra_icons[4]%3F${show_time:+%7F$right_sep%K{7\} %0F$prefixes[3]16:23:42 $extra_icons[5]%7F}%k$right_tail%f' '%$frame_color[$color]F─╮%f'
   '' '%$frame_color[$color]F─╯%f'
 )
 
@@ -94,7 +107,7 @@ function prompt_length() {
       typeset ${${(%):-$1%$m(l.x.y)}[-1]}=$m
     done
   fi
-  print $x
+  REPLY=$x
 }
 
 function print_prompt() {
@@ -102,17 +115,19 @@ function print_prompt() {
   local right=${style}_right
   left=("${(@P)left}")
   right=("${(@P)right}")
+  (( disable_rprompt )) && right=()
   eval "left=(${(@)left:/(#b)(*)/\"$match[1]\"})"
   eval "right=(${(@)right:/(#b)(*)/\"$match[1]\"})"
   if (( num_lines == 1)); then
     left=($left[2] $left[4])
     right=($right[1] $right[3])
   else
-    (( left_frame )) || left=('' $left[2] '' '%76F❯%f █')
+    (( left_frame )) || left=('' $left[2] '' "%76F❯%f ${buffer:-█}")
     (( right_frame )) || right=($right[1] '' '' '')
   fi
   local -i right_indent=prompt_indent
-  local -i width=$(prompt_length ${(g::):-$left[1]$left[2]$right[1]$right[2]})
+  prompt_length ${(g::):-$left[1]$left[2]$right[1]$right[2]}
+  local -i width=REPLY
   while (( wizard_columns - width <= prompt_indent + right_indent )); do
     (( --right_indent ))
   done
@@ -120,7 +135,8 @@ function print_prompt() {
   for ((i = 1; i < $#left; i+=2)); do
     local l=${(g::):-$left[i]$left[i+1]}
     local r=${(g::):-$right[i]$right[i+1]}
-    local -i gap=$((wizard_columns - prompt_indent - right_indent - $(prompt_length $l$r)))
+    prompt_length $l$r
+    local -i gap=$((wizard_columns - prompt_indent - right_indent - REPLY))
     (( num_lines == 2 && i == 1 )) && local fill=$gap_char || local fill=' '
     print -n  -- ${(pl:$prompt_indent:: :)}
     print -nP -- $l
@@ -147,8 +163,8 @@ function flowing() {
   shift $((OPTIND-1))
   local line word lines=()
   for word in "$@"; do
-    local n=$(prompt_length ${(g::):-"$line $word"})
-    if (( n > wizard_columns )); then
+    prompt_length ${(g::):-"$line $word"}
+    if (( REPLY > wizard_columns )); then
       [[ -z $line ]] || lines+=$line
       line=
     fi
@@ -161,8 +177,8 @@ function flowing() {
   done
   [[ -z $line ]] || lines+=$line
   for line in $lines; do
-    local n=$(prompt_length ${(g::)line})
-    (( centered && n < wizard_columns )) && print -n -- ${(pl:$(((wizard_columns - n) / 2)):: :)}
+    prompt_length ${(g::)line}
+    (( centered && REPLY < wizard_columns )) && print -n -- ${(pl:$(((wizard_columns - REPLY) / 2)):: :)}
     print -P -- $line
   done
 }
@@ -242,7 +258,7 @@ function can_install_font() {
       [[ -w ~ ]] || return
     fi
     terminal=Termux
-    return
+    return 0
   fi
   if [[ "$(uname)" == Darwin && $TERM_PROGRAM == iTerm.app ]]; then
     (( $+commands[curl] )) || return
@@ -266,7 +282,7 @@ function can_install_font() {
     [[ $font == (#b)*' '(<->) ]] || return
     iterm2_font_size=$match[1]
     terminal=iTerm2
-    return
+    return 0
   fi
   return 1
 }
@@ -307,20 +323,25 @@ function install_font() {
           curl -fsSL -o ~/Library/Fonts/$file "$font_base_url/${file// /%20}"
       done
       print -nP -- "Changing %BiTerm2%b settings ..."
-      local k v settings=(
-        '"Normal Font"' '"MesloLGSNer-Regular '$iterm2_font_size'"'
-        '"Horizontal Spacing"' 1
-        '"Vertical Spacing"' 1
-        '"Use Bold Font"' 1
-        '"Use Bright Bold"' 1
-        '"Use Italic Font"' 1
-        '"Use Non-ASCII Font"' 0
-        '"Ambiguous Double Width"' 0
-        '"Terminal Type"' '"xterm-256color"'
+      local k t v settings=(
+        '"Normal Font"'            string '"MesloLGSNer-Regular '$iterm2_font_size'"'
+        '"Terminal Type"'          string '"xterm-256color"'
+        '"Horizontal Spacing"'     real   1
+        '"Vertical Spacing"'       real   1
+        '"Minimum Contrast"'       real   0
+        '"Use Bold Font"'          bool   1
+        '"Use Bright Bold"'        bool   1
+        '"Use Italic Font"'        bool   1
+        '"ASCII Anti Aliased"'     bool   1
+        '"Non-ASCII Anti Aliased"' bool   1
+        '"Use Non-ASCII Font"'     bool   0
+        '"Ambiguous Double Width"' bool   0
       )
-      for k v in $settings; do
+      for k t v in $settings; do
+        /usr/libexec/PlistBuddy -c "Set :\"New Bookmarks\":0:$k $v" \
+          ~/Library/Preferences/com.googlecode.iterm2.plist && continue
         run_command "" /usr/libexec/PlistBuddy -c \
-          "Set :\"New Bookmarks\":0:$k $v" ~/Library/Preferences/com.googlecode.iterm2.plist
+          "Add :\"New Bookmarks\":0:$k $t $v" ~/Library/Preferences/com.googlecode.iterm2.plist
       done
       print -P " %2FOK%f"
       run_command "Updating %BiTerm2%b settings cache" /usr/bin/defaults read com.googlecode.iterm2
@@ -329,10 +350,22 @@ function install_font() {
       print -P ""
       print -P "Please %Brestart iTerm2%b for the changes to take effect."
       print -P ""
-      flowing +c -i 5 "  1. Click" "%BiTerm2 → Quit iTerm2%b" or press "%B⌘ Q%b."
-      flowing +c -i 5 "  2. Open %BiTerm2%b."
-      print -P ""
-      exit 69
+      while true; do
+        flowing +c -i 5 "  1. Click" "%BiTerm2 → Quit iTerm2%b" or press "%B⌘ Q%b."
+        flowing +c -i 5 "  2. Open %BiTerm2%b."
+        print -P ""
+        local key=
+        read -k key${(%):-"?%BWill you restart iTerm2 before proceeding? [yN]: %b"} || quit -c
+        if [[ $key = (y|Y) ]]; then
+          print -P ""
+          print -P ""
+          exit 69
+        fi
+        print -P ""
+        print -P ""
+        print -P "It's important to %Brestart iTerm2%b for the changes to take effect."
+        print -P ""
+      done
     ;;
   esac
 }
@@ -481,7 +514,7 @@ function ask_debian() {
 function ask_narrow_icons() {
   if [[ $POWERLEVEL9K_MODE == (powerline|compatible) ]]; then
     cap_narrow_icons=0
-    return
+    return 0
   fi
   local text="X"
   text+="%1F${icons[VCS_GIT_ICON]// }%fX"
@@ -519,29 +552,44 @@ function ask_narrow_icons() {
 }
 
 function ask_style() {
+  if (( cap_diamond && LINES < 26 )); then
+    local nl=''
+  else
+    local nl=$'\n'
+  fi
   while true; do
     clear
     flowing -c "%BPrompt Style%b"
-    print -P ""
+    print -n $nl
     print -P "%B(1)  Lean.%b"
-    print -P ""
-    style=lean print_prompt
+    print -n $nl
+    style=lean left_frame=0 right_frame=0 print_prompt
     print -P ""
     print -P "%B(2)  Classic.%b"
-    print -P ""
+    print -n $nl
     style=classic print_prompt
+    print -P ""
+    print -P "%B(3)  Rainbow.%b"
+    print -n $nl
+    style=rainbow print_prompt
+    print -P ""
+    print -P "%B(4)  Pure.%b"
+    print -n $nl
+    style=pure print_prompt
     print -P ""
     print -P "(r)  Restart from the beginning."
     print -P "(q)  Quit and do nothing."
     print -P ""
 
     local key=
-    read -k key${(%):-"?%BChoice [12rq]: %b"} || quit -c
+    read -k key${(%):-"?%BChoice [1234rq]: %b"} || quit -c
     case $key in
       q) quit;;
       r) return 1;;
-      1) style=lean; options+=lean; break;;
+      1) style=lean; left_frame=0; right_frame=0; options+=lean; break;;
       2) style=classic; options+=classic; break;;
+      3) style=rainbow; options+=rainbow; break;;
+      4) style=pure; empty_line=1; options+=pure; break;;
     esac
   done
 }
@@ -590,10 +638,58 @@ function ask_color() {
   done
 }
 
+function ask_ornaments_color() {
+  [[ $style != (rainbow|lean) || $num_lines == 1 ]] && return
+  [[ $gap_char == ' ' && $left_frame == 0 && $right_frame == 0 ]] && return
+  if [[ $LINES -lt 26 ]]; then
+    local nl=''
+  else
+    local nl=$'\n'
+  fi
+  local ornaments=()
+  [[ $gap_char != ' ' ]]          && ornaments+=Connection
+  (( left_frame || right_frame )) && ornaments+=Frame
+  while true; do
+    clear
+    flowing -c "%B${(j: & :)ornaments} Color%b"
+    print -n $nl
+    print -P "%B(1)  Lightest.%b"
+    print -n $nl
+    color=1 print_prompt
+    print -P ""
+    print -P "%B(2)  Light.%b"
+    print -n $nl
+    color=2 print_prompt
+    print -P ""
+    print -P "%B(3)  Dark.%b"
+    print -n $nl
+    color=3 print_prompt
+    print -P ""
+    print -P "%B(4)  Darkest.%b"
+    print -n $nl
+    color=4 print_prompt
+    print -P ""
+    print -P "(r)  Restart from the beginning."
+    print -P "(q)  Quit and do nothing."
+    print -P ""
+
+    local key=
+    read -k key${(%):-"?%BChoice [1234rq]: %b"} || quit -c
+    case $key in
+      q) quit;;
+      r) return 1;;
+      1) color=1; options+=lightest; break;;
+      2) color=2; options+=light; break;;
+      3) color=3; options+=dark; break;;
+      4) color=4; options+=darkest; break;;
+    esac
+  done
+}
+
 function ask_time() {
   if (( wizard_columns < 80 )); then
     show_time=
-    return
+    return 0
   fi
 
   while true; do
@@ -669,7 +765,7 @@ function os_icon_name() {
 
 function ask_extra_icons() {
   if [[ $POWERLEVEL9K_MODE == (powerline|compatible) ]]; then
-    return
+    return 0
   fi
   local os_icon=${(g::)icons[$(os_icon_name)]}
   local dir_icon=${(g::)icons[HOME_SUB_ICON]}
@@ -687,6 +783,8 @@ function ask_extra_icons() {
   branch_icon=${branch_icon// }
   if [[ $style == classic ]]; then
     os_icon="%255F$os_icon%f"
+  elif [[ $style == rainbow ]]; then
+    os_icon="%F{232}$os_icon%f"
   else
     os_icon="%f$os_icon"
   fi
@@ -726,7 +824,7 @@ function ask_prefixes() {
   if (( wizard_columns < 80 )); then
     prefixes=("$concise[@]")
     options+=concise
-    return
+    return 0
   fi
   while true; do
     clear
@@ -756,8 +854,8 @@ function ask_prefixes() {
 }
 
 function ask_separators() {
-  if [[ $style != classic || $cap_diamond != 1 ]]; then
-    return
+  if [[ $style != (classic|rainbow) || $cap_diamond != 1 ]]; then
+    return 0
   fi
   if [[ $POWERLEVEL9K_MODE == nerdfont-complete && $LINES -lt 26 ]]; then
     local nl=''
@@ -843,8 +941,8 @@ function ask_separators() {
 }
 
 function ask_heads() {
-  if [[ $style != classic || $cap_diamond != 1 ]]; then
-    return
+  if [[ $style != (classic|rainbow) || $cap_diamond != 1 ]]; then
+    return 0
   fi
   if [[ $POWERLEVEL9K_MODE == nerdfont-complete && $LINES -lt 26 ]]; then
     local nl=''
@@ -912,8 +1010,8 @@ function ask_heads() {
 }
 
 function ask_tails() {
-  if [[ $style != classic ]]; then
-    return
+  if [[ $style != (classic|rainbow) ]]; then
+    return 0
   fi
   if [[ $POWERLEVEL9K_MODE == nerdfont-complete && $LINES -lt 31 ]]; then
     local nl=''
@@ -1023,7 +1121,7 @@ function ask_num_lines() {
 
 function ask_gap_char() {
   if [[ $num_lines != 2 ]]; then
-    return
+    return 0
   fi
   while true; do
     clear
@@ -1058,8 +1156,8 @@ function ask_gap_char() {
 }
 
 function ask_frame() {
-  if [[ $style != classic || $num_lines != 2 ]]; then
-    return
+  if [[ $style != (classic|rainbow|lean) || $num_lines != 2 ]]; then
+    return 0
   fi
 
   (( LINES >= 26 )) && local nl=$'\n' || local nl=''
@@ -1131,36 +1229,106 @@ function ask_empty_line() {
   done
 }
 
-function ask_confirm() {
+function ask_instant_prompt() {
+  autoload -Uz is-at-least
+  if ! is-at-least 5.4; then
+    instant_prompt=off
+    return 0
+  fi
+  if (( LINES < 24 )); then
+    local nl=''
+  else
+    local nl=$'\n'
+  fi
   while true; do
     clear
-    flowing -c "%BLooks good?%b"
+    flowing -c "%BInstant Prompt Mode%b"
+    print -n $nl
+    flowing -c "$(href 'https://github.com/romkatv/powerlevel10k/blob/master/README.md#instant-prompt')"
     print -P ""
-    print_prompt
-    (( empty_line )) && print -P ""
-    print_prompt
-    print -P ""
-    print -P "%B(y)  Yes.%b"
+    flowing +c -i 5 "%B(1)  Off.%b" Disable instant prompt. Choose this if you\'ve tried instant  \
+      prompt and found it incompatible with your zsh configuration files.
+    print -n $nl
+    flowing +c -i 5 "%B(2)  Quiet.%b" Enable instant prompt and %Bdon\'t print warnings%b when    \
+      detecting console output during zsh initialization. Choose this if you\'ve read and         \
+      understood the documentation linked above.
+    print -n $nl
+    flowing +c -i 5 "%B(3)  Verbose.%b"  Enable instant prompt and %Bprint a warning%b when       \
+      detecting console output during zsh initialization. %BChoose this if you\'ve never tried    \
+      instant prompt, haven\'t seen the warning, or if you are unsure what this all means%b.
     print -P ""
     print -P "(r)  Restart from the beginning."
     print -P "(q)  Quit and do nothing."
     print -P ""
 
     local key=
-    read -k key${(%):-"?%BChoice [yrq]: %b"} || quit -c
+    read -k key${(%):-"?%BChoice [123rq]: %b"} || quit -c
     case $key in
       q) quit;;
       r) return 1;;
-      y) break;;
+      1) instant_prompt=off; options+=instant_prompt=off; break;;
+      2) instant_prompt=quiet; options+=instant_prompt=quiet; break;;
+      3) instant_prompt=verbose; options+=instant_prompt=verbose; break;;
+    esac
+  done
+}
+
+function ask_transient_prompt() {
+  local disable_rprompt=$((num_lines == 1))
+  local prompt_char='%76F❯%f'
+  [[ $style == pure ]] && prompt_char='%5F❯%f'
+  while true; do
+    clear
+    flowing -c "%BEnable Transient Prompt?%b"
+    print -P ""
+    print -P "%B(y)  Yes.%b"
+    if (( LINES >= 25 || num_lines == 1 )); then
+      print -P ""
+      print -P "${(pl:$prompt_indent:: :)}$prompt_char %2Fgit%f pull"
+    elif (( LINES < 23 )); then
+      print -P ""
+    else
+      print -P "${(pl:$prompt_indent:: :)}$prompt_char %2Fgit%f pull"
+    fi
+    print -P "${(pl:$prompt_indent:: :)}$prompt_char %2Fgit%f branch x"
+    (( empty_line )) && echo
+    buffer="%2Fgit%f checkout x█" print_prompt
+    print -P ""
+    print -P "%B(n)  No.%b"
+    if (( LINES >= 25 || num_lines == 1 )); then
+      print -P ""
+      buffer="%2Fgit%f pull" print_prompt
+      (( empty_line )) && echo
+    elif (( LINES < 23 )); then
+      print -P ""
+    else
+      buffer="%2Fgit%f pull" print_prompt
+      (( empty_line )) && echo
+    fi
+    buffer="%2Fgit%f branch x" print_prompt
+    (( empty_line )) && echo
+    buffer="%2Fgit%f checkout x█" print_prompt
+    print -P ""
+    print -P "(r)  Restart from the beginning."
+    print -P "(q)  Quit and do nothing."
+    print -P ""
+
+    local key=
+    read -k key${(%):-"?%BChoice [ynrq]: %b"} || quit -c
+    case $key in
+      q) quit;;
+      r) return 1;;
+      y) transient_prompt=1; options+=transient_prompt; break;;
+      n) transient_prompt=0; break;;
     esac
   done
 }
 
 function ask_config_overwrite() {
   config_backup=
+  config_backup_u=0
   if [[ ! -e $__p9k_cfg_path ]]; then
-    write_config=1
-    return
+    return 0
   fi
   while true; do
     clear
@@ -1182,9 +1350,69 @@ function ask_config_overwrite() {
         config_backup="$(mktemp ${TMPDIR:-/tmp}/$__p9k_cfg_basename.XXXXXXXXXX)" || exit 1
         cp $__p9k_cfg_path $config_backup                                        || exit 1
         config_backup_u=${${TMPDIR:+\$TMPDIR}:-/tmp}/${(q-)config_backup:t}
-        write_config=1
         break
         ;;
+    esac
+  done
+}
+
+function ask_zshrc_edit() {
+  zshrc_content=
+  zshrc_backup=
+  zshrc_backup_u=
+  zshrc_has_cfg=0
+  zshrc_has_instant_prompt=0
+  write_zshrc=0
+
+  [[ $instant_prompt == off ]] && zshrc_has_instant_prompt=1
+
+  if [[ -e $__p9k_zshrc ]]; then
+    zshrc_content="$(<$__p9k_zshrc)" || quit -c
+    local lines=(${(f)zshrc_content})
+    local f0=$__p9k_cfg_path
+    local f1=${(q)f0}
+    local f2=${(q-)f0}
+    local f3=${(qq)f0}
+    local f4=${(qqq)f0}
+    local g1=${${(q)__p9k_cfg_path}/#(#b)${(q)HOME}\//'~/'}
+    if [[ -n ${(@M)lines:#(#b)[^#]#([^[:IDENT:]]|)source[[:space:]]##($f1|$f2|$f3|$f4|$g1)(|[[:space:]]*|'#'*)} ]]; then
+      zshrc_has_cfg=1
+    fi
+    local pre='${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh'
+    if [[ -n ${(@M)lines:#(#b)[^#]#([^[:IDENT:]]|)source[[:space:]]##($pre|\"$pre\")(|[[:space:]]*|'#'*)} ]]; then
+      zshrc_has_instant_prompt=1
+    fi
+    (( zshrc_has_cfg && zshrc_has_instant_prompt )) && return
+  fi
+
+  while true; do
+    clear
+    flowing -c "%BApply changes to %b%2F${__p9k_zshrc_u//\\/\\\\}%f%B?%b"
+    print -P ""
+    print -P "%B(y)  Yes (recommended).%b"
+    print -P ""
+    print -P "%B(n)  No. I know which changes to apply and will do it myself.%b"
+    print -P ""
+    print -P "(r)  Restart from the beginning."
+    print -P "(q)  Quit and do nothing."
+    print -P ""
+
+    local key=
+    read -k key${(%):-"?%BChoice [ynrq]: %b"} || quit -c
+    case $key in
+      q) quit;;
+      r) return 1;;
+      n) return 0;;
+      y)
+        write_zshrc=1
+        if [[ -n $zshrc_content ]]; then
+          zshrc_backup="$(mktemp ${TMPDIR:-/tmp}/.zshrc.XXXXXXXXXX)" || quit -c
+          cp -p $__p9k_zshrc $zshrc_backup                           || quit -c
+          print -r -- $zshrc_content >$zshrc_backup                  || quit -c
+          zshrc_backup_u=${${TMPDIR:+\$TMPDIR}:-/tmp}/${(q-)zshrc_backup:t}
+        fi
+        break
+      ;;
     esac
   done
 }
@@ -1205,120 +1433,182 @@ function generate_config() {
     lines=("${(@)lines//$1/$2}")
   }
 
-  sub MODE $POWERLEVEL9K_MODE
+  if [[ $style != pure ]]; then
+    sub MODE $POWERLEVEL9K_MODE
 
-  if (( cap_narrow_icons )); then
-    sub VISUAL_IDENTIFIER_EXPANSION "'\${P9K_VISUAL_IDENTIFIER// }'"
-    sub BACKGROUND_JOBS_VISUAL_IDENTIFIER_EXPANSION "'\${P9K_VISUAL_IDENTIFIER// }'"
-    sub OS_ICON_CONTENT_EXPANSION "'%B\${P9K_CONTENT// }'"
-  else
-    sub VISUAL_IDENTIFIER_EXPANSION "'\${P9K_VISUAL_IDENTIFIER}'"
-    sub BACKGROUND_JOBS_VISUAL_IDENTIFIER_EXPANSION "'\${P9K_VISUAL_IDENTIFIER}'"
-  fi
-
-  if [[ $POWERLEVEL9K_MODE == compatible ]]; then
-    # Many fonts don't have the gear or the lock icon.
-    sub BACKGROUND_JOBS_VISUAL_IDENTIFIER_EXPANSION "'⇶'"
-    uncomment 'typeset -g POWERLEVEL9K_DIR_NOT_WRITABLE_VISUAL_IDENTIFIER_EXPANSION'
-    sub DIR_NOT_WRITABLE_VISUAL_IDENTIFIER_EXPANSION "'∅'"
-  fi
-
-  if [[ $POWERLEVEL9K_MODE == (awesome-patched|awesome-fontconfig) && $cap_python == 0 ]]; then
-    uncomment 'typeset -g POWERLEVEL9K_VIRTUALENV_VISUAL_IDENTIFIER_EXPANSION'
-    uncomment 'typeset -g POWERLEVEL9K_ANACONDA_VISUAL_IDENTIFIER_EXPANSION'
-    uncomment 'typeset -g POWERLEVEL9K_PYENV_VISUAL_IDENTIFIER_EXPANSION'
-    sub VIRTUALENV_VISUAL_IDENTIFIER_EXPANSION "'🐍'"
-    sub ANACONDA_VISUAL_IDENTIFIER_EXPANSION "'🐍'"
-    sub PYENV_VISUAL_IDENTIFIER_EXPANSION "'🐍'"
-  fi
-
-  if [[ $POWERLEVEL9K_MODE == nerdfont-complete ]]; then
-    sub BATTERY_STAGES "\$'\uf58d\uf579\uf57a\uf57b\uf57c\uf57d\uf57e\uf57f\uf580\uf581\uf578'"
-  fi
-
-  if [[ $style == classic ]]; then
-    sub BACKGROUND $bg_color[$color]
-    sub MULTILINE_FIRST_PROMPT_GAP_FOREGROUND $frame_color[$color]
-    sub MULTILINE_FIRST_PROMPT_PREFIX "'%$frame_color[$color]F╭─'"
-    sub MULTILINE_NEWLINE_PROMPT_PREFIX "'%$frame_color[$color]F├─'"
-    sub MULTILINE_LAST_PROMPT_PREFIX "'%$frame_color[$color]F╰─'"
-    sub MULTILINE_FIRST_PROMPT_SUFFIX "'%$frame_color[$color]F─╮'"
-    sub MULTILINE_NEWLINE_PROMPT_SUFFIX "'%$frame_color[$color]F─┤'"
-    sub MULTILINE_LAST_PROMPT_SUFFIX "'%$frame_color[$color]F─╯'"
-    sub LEFT_SUBSEGMENT_SEPARATOR "'%$sep_color[$color]F$left_subsep'"
-    sub RIGHT_SUBSEGMENT_SEPARATOR "'%$sep_color[$color]F$right_subsep'"
-    sub LEFT_SEGMENT_SEPARATOR "'$left_sep'"
-    sub RIGHT_SEGMENT_SEPARATOR "'$right_sep'"
-    sub LEFT_PROMPT_FIRST_SEGMENT_START_SYMBOL "'$left_tail'"
-    sub LEFT_PROMPT_LAST_SEGMENT_END_SYMBOL "'$left_head'"
-    sub RIGHT_PROMPT_FIRST_SEGMENT_START_SYMBOL "'$right_head'"
-    sub RIGHT_PROMPT_LAST_SEGMENT_END_SYMBOL "'$right_tail'"
-    sub VCS_LOADING_FOREGROUND $sep_color[$color]
-    rep '%248F' "%$prefix_color[$color]F"
-  fi
-
-  if [[ -n $show_time ]]; then
-    uncomment time
-  fi
-
-  if [[ -n ${(j::)extra_icons} ]]; then
-    local branch_icon=${icons[VCS_BRANCH_ICON]// }
-    sub VCS_BRANCH_ICON "'$branch_icon '"
-    uncomment os_icon
-  else
-    uncomment 'typeset -g POWERLEVEL9K_DIR_CLASSES'
-    uncomment 'typeset -g POWERLEVEL9K_VCS_VISUAL_IDENTIFIER_EXPANSION'
-    uncomment 'typeset -g POWERLEVEL9K_COMMAND_EXECUTION_TIME_VISUAL_IDENTIFIER_EXPANSION'
-    uncomment 'typeset -g POWERLEVEL9K_TIME_VISUAL_IDENTIFIER_EXPANSION'
-    sub VCS_VISUAL_IDENTIFIER_EXPANSION ''
-    sub COMMAND_EXECUTION_TIME_VISUAL_IDENTIFIER_EXPANSION ''
-    sub TIME_VISUAL_IDENTIFIER_EXPANSION ''
-  fi
-
-  if [[ -n ${(j::)prefixes} ]]; then
-    uncomment 'typeset -g POWERLEVEL9K_VCS_PREFIX'
-    uncomment 'typeset -g POWERLEVEL9K_COMMAND_EXECUTION_TIME_PREFIX'
-    uncomment 'typeset -g POWERLEVEL9K_CONTEXT_PREFIX'
-    uncomment 'typeset -g POWERLEVEL9K_KUBECONTEXT_PREFIX'
-    uncomment 'typeset -g POWERLEVEL9K_TIME_PREFIX'
-    [[ $style == classic ]] && local fg="%$prefix_color[$color]F" || local fg="%f"
-    sub VCS_PREFIX "'${fg}on '"
-    sub COMMAND_EXECUTION_TIME_PREFIX "'${fg}took '"
-    sub CONTEXT_PREFIX "'${fg}with '"
-    sub KUBECONTEXT_PREFIX "'${fg}at '"
-    sub TIME_PREFIX "'${fg}at '"
-    sub CONTEXT_TEMPLATE "'%n$fg at %180F%m'"
-    sub CONTEXT_ROOT_TEMPLATE "'%n$fg at %227F%m'"
-  fi
-
-  if (( num_lines == 1 )); then
-    local -a tmp
-    local line
-    for line in "$lines[@]"; do
-      [[ $line == ('      newline'|*'===[ Line #'*) ]] || tmp+=$line
-    done
-    lines=("$tmp[@]")
-  fi
-
-  sub MULTILINE_FIRST_PROMPT_GAP_CHAR "'$gap_char'"
-
-  if [[ $style == classic && $num_lines == 2 ]]; then
-    if (( ! right_frame )); then
-      sub MULTILINE_FIRST_PROMPT_SUFFIX ''
-      sub MULTILINE_NEWLINE_PROMPT_SUFFIX ''
-      sub MULTILINE_LAST_PROMPT_SUFFIX ''
+    if (( cap_narrow_icons )); then
+      uncomment 'typeset -g POWERLEVEL9K_VISUAL_IDENTIFIER_EXPANSION'
+      sub VISUAL_IDENTIFIER_EXPANSION "'\${P9K_VISUAL_IDENTIFIER// }'"
+      sub BACKGROUND_JOBS_VISUAL_IDENTIFIER_EXPANSION "'\${P9K_VISUAL_IDENTIFIER// }'"
+      sub VPN_IP_VISUAL_IDENTIFIER_EXPANSION "'\${P9K_VISUAL_IDENTIFIER// }'"
+      sub VIM_SHELL_VISUAL_IDENTIFIER_EXPANSION "'\${P9K_VISUAL_IDENTIFIER// }'"
+      sub MIDNIGHT_COMMANDER_VISUAL_IDENTIFIER_EXPANSION "'\${P9K_VISUAL_IDENTIFIER// }'"
+      sub OS_ICON_CONTENT_EXPANSION "'%B\${P9K_CONTENT// }'"
+    else
+      sub VISUAL_IDENTIFIER_EXPANSION "'\${P9K_VISUAL_IDENTIFIER}'"
+      sub BACKGROUND_JOBS_VISUAL_IDENTIFIER_EXPANSION "'\${P9K_VISUAL_IDENTIFIER}'"
+      sub VPN_IP_VISUAL_IDENTIFIER_EXPANSION "'\${P9K_VISUAL_IDENTIFIER}'"
+      sub VIM_SHELL_VISUAL_IDENTIFIER_EXPANSION "'\${P9K_VISUAL_IDENTIFIER}'"
+      sub MIDNIGHT_COMMANDER_VISUAL_IDENTIFIER_EXPANSION "'\${P9K_VISUAL_IDENTIFIER}'"
     fi
-    if (( ! left_frame )); then
-      sub MULTILINE_FIRST_PROMPT_PREFIX ''
-      sub MULTILINE_NEWLINE_PROMPT_PREFIX ''
-      sub MULTILINE_LAST_PROMPT_PREFIX ''
-      uncomment prompt_char
-      sub STATUS_OK false
-      sub STATUS_ERROR false
+
+    if [[ $POWERLEVEL9K_MODE == compatible ]]; then
+      sub STATUS_ERROR_VISUAL_IDENTIFIER_EXPANSION "'х'"
+      sub STATUS_ERROR_SIGNAL_VISUAL_IDENTIFIER_EXPANSION "'х'"
+      sub STATUS_ERROR_PIPE_VISUAL_IDENTIFIER_EXPANSION "'х'"
     fi
+
+    if [[ $POWERLEVEL9K_MODE == (compatible|powerline) ]]; then
+      uncomment 'typeset -g POWERLEVEL9K_DIR_NOT_WRITABLE_VISUAL_IDENTIFIER_EXPANSION'
+      sub DIR_NOT_WRITABLE_VISUAL_IDENTIFIER_EXPANSION "'∅'"
+      uncomment 'typeset -g POWERLEVEL9K_TERRAFORM_VISUAL_IDENTIFIER_EXPANSION'
+      sub TERRAFORM_VISUAL_IDENTIFIER_EXPANSION "'tf'"
+      uncomment 'typeset -g POWERLEVEL9K_RANGER_VISUAL_IDENTIFIER_EXPANSION'
+      sub RANGER_VISUAL_IDENTIFIER_EXPANSION "'▲'"
+      uncomment 'typeset -g POWERLEVEL9K_KUBECONTEXT_DEFAULT_VISUAL_IDENTIFIER_EXPANSION'
+      sub KUBECONTEXT_DEFAULT_VISUAL_IDENTIFIER_EXPANSION "'○'"
+      uncomment 'typeset -g POWERLEVEL9K_AZURE_VISUAL_IDENTIFIER_EXPANSION'
+      sub AZURE_VISUAL_IDENTIFIER_EXPANSION "'az'"
+      uncomment 'typeset -g POWERLEVEL9K_AWS_EB_ENV_VISUAL_IDENTIFIER_EXPANSION'
+      sub AWS_EB_ENV_VISUAL_IDENTIFIER_EXPANSION "'eb'"
+      sub BACKGROUND_JOBS_VISUAL_IDENTIFIER_EXPANSION "'≡'"
+    fi
+
+    if [[ $POWERLEVEL9K_MODE == (awesome-patched|awesome-fontconfig) && $cap_python == 0 ]]; then
+      uncomment 'typeset -g POWERLEVEL9K_VIRTUALENV_VISUAL_IDENTIFIER_EXPANSION'
+      uncomment 'typeset -g POWERLEVEL9K_ANACONDA_VISUAL_IDENTIFIER_EXPANSION'
+      uncomment 'typeset -g POWERLEVEL9K_PYENV_VISUAL_IDENTIFIER_EXPANSION'
+      uncomment 'typeset -g POWERLEVEL9K_PYTHON_ICON'
+      sub VIRTUALENV_VISUAL_IDENTIFIER_EXPANSION "'🐍'"
+      sub ANACONDA_VISUAL_IDENTIFIER_EXPANSION "'🐍'"
+      sub PYENV_VISUAL_IDENTIFIER_EXPANSION "'🐍'"
+      sub PYTHON_ICON "'🐍'"
+    fi
+
+    if [[ $POWERLEVEL9K_MODE == nerdfont-complete ]]; then
+      sub BATTERY_STAGES "\$'\uf58d\uf579\uf57a\uf57b\uf57c\uf57d\uf57e\uf57f\uf580\uf581\uf578'"
+    fi
+
+    if [[ $style == (classic|rainbow) ]]; then
+      if [[ $style == classic ]]; then
+        sub BACKGROUND $bg_color[$color]
+        sub LEFT_SUBSEGMENT_SEPARATOR "'%$sep_color[$color]F$left_subsep'"
+        sub RIGHT_SUBSEGMENT_SEPARATOR "'%$sep_color[$color]F$right_subsep'"
+        sub VCS_LOADING_FOREGROUND $sep_color[$color]
+        rep '%248F' "%$prefix_color[$color]F"
+      else
+        sub LEFT_SUBSEGMENT_SEPARATOR "'$left_subsep'"
+        sub RIGHT_SUBSEGMENT_SEPARATOR "'$right_subsep'"
+      fi
+      sub MULTILINE_FIRST_PROMPT_GAP_FOREGROUND $frame_color[$color]
+      sub MULTILINE_FIRST_PROMPT_PREFIX "'%$frame_color[$color]F╭─'"
+      sub MULTILINE_NEWLINE_PROMPT_PREFIX "'%$frame_color[$color]F├─'"
+      sub MULTILINE_LAST_PROMPT_PREFIX "'%$frame_color[$color]F╰─'"
+      sub MULTILINE_FIRST_PROMPT_SUFFIX "'%$frame_color[$color]F─╮'"
+      sub MULTILINE_NEWLINE_PROMPT_SUFFIX "'%$frame_color[$color]F─┤'"
+      sub MULTILINE_LAST_PROMPT_SUFFIX "'%$frame_color[$color]F─╯'"
+      sub LEFT_SEGMENT_SEPARATOR "'$left_sep'"
+      sub RIGHT_SEGMENT_SEPARATOR "'$right_sep'"
+      sub LEFT_PROMPT_FIRST_SEGMENT_START_SYMBOL "'$left_tail'"
+      sub LEFT_PROMPT_LAST_SEGMENT_END_SYMBOL "'$left_head'"
+      sub RIGHT_PROMPT_FIRST_SEGMENT_START_SYMBOL "'$right_head'"
+      sub RIGHT_PROMPT_LAST_SEGMENT_END_SYMBOL "'$right_tail'"
+    fi
+
+    if [[ -n $show_time ]]; then
+      uncomment time
+    fi
+
+    if [[ -n ${(j::)extra_icons} ]]; then
+      local branch_icon=${icons[VCS_BRANCH_ICON]// }
+      sub VCS_BRANCH_ICON "'$branch_icon '"
+      uncomment os_icon
+    else
+      uncomment 'typeset -g POWERLEVEL9K_DIR_CLASSES'
+      uncomment 'typeset -g POWERLEVEL9K_VCS_VISUAL_IDENTIFIER_EXPANSION'
+      uncomment 'typeset -g POWERLEVEL9K_COMMAND_EXECUTION_TIME_VISUAL_IDENTIFIER_EXPANSION'
+      uncomment 'typeset -g POWERLEVEL9K_TIME_VISUAL_IDENTIFIER_EXPANSION'
+      sub VCS_VISUAL_IDENTIFIER_EXPANSION ''
+      sub COMMAND_EXECUTION_TIME_VISUAL_IDENTIFIER_EXPANSION ''
+      sub TIME_VISUAL_IDENTIFIER_EXPANSION ''
+    fi
+
+    if [[ -n ${(j::)prefixes} ]]; then
+      uncomment 'typeset -g POWERLEVEL9K_VCS_PREFIX'
+      uncomment 'typeset -g POWERLEVEL9K_COMMAND_EXECUTION_TIME_PREFIX'
+      uncomment 'typeset -g POWERLEVEL9K_CONTEXT_PREFIX'
+      uncomment 'typeset -g POWERLEVEL9K_KUBECONTEXT_PREFIX'
+      uncomment 'typeset -g POWERLEVEL9K_TIME_PREFIX'
+      if [[ $style == (lean|classic) ]]; then
+        [[ $style == classic ]] && local fg="%$prefix_color[$color]F" || local fg="%f"
+        sub VCS_PREFIX "'${fg}on '"
+        sub COMMAND_EXECUTION_TIME_PREFIX "'${fg}took '"
+        sub CONTEXT_PREFIX "'${fg}with '"
+        sub KUBECONTEXT_PREFIX "'${fg}at '"
+        sub TIME_PREFIX "'${fg}at '"
+        sub CONTEXT_TEMPLATE "'%n$fg at %180F%m'"
+        sub CONTEXT_ROOT_TEMPLATE "'%n$fg at %227F%m'"
+      else
+        sub CONTEXT_TEMPLATE "'%n at %m'"
+        sub CONTEXT_ROOT_TEMPLATE "'%n at %m'"
+      fi
+    fi
+
+    if (( num_lines == 1 )); then
+      local -a tmp
+      local line
+      for line in "$lines[@]"; do
+        [[ $line == ('      newline'|*'===[ Line #'*) ]] || tmp+=$line
+      done
+      lines=("$tmp[@]")
+    fi
+
+    sub MULTILINE_FIRST_PROMPT_GAP_CHAR "'$gap_char'"
+
+    if [[ $style == (classic|rainbow) && $num_lines == 2 ]]; then
+      if (( ! right_frame )); then
+        sub MULTILINE_FIRST_PROMPT_SUFFIX ''
+        sub MULTILINE_NEWLINE_PROMPT_SUFFIX ''
+        sub MULTILINE_LAST_PROMPT_SUFFIX ''
+      fi
+      if (( ! left_frame )); then
+        sub MULTILINE_FIRST_PROMPT_PREFIX ''
+        sub MULTILINE_NEWLINE_PROMPT_PREFIX ''
+        sub MULTILINE_LAST_PROMPT_PREFIX ''
+        sub STATUS_OK false
+        sub STATUS_ERROR false
+      fi
+    fi
+
+    if [[ $style == lean ]]; then
+      sub MULTILINE_FIRST_PROMPT_GAP_FOREGROUND $frame_color[$color]
+      if (( right_frame )); then
+        sub MULTILINE_FIRST_PROMPT_SUFFIX "'%$frame_color[$color]F─╮'"
+        sub MULTILINE_NEWLINE_PROMPT_SUFFIX "'%$frame_color[$color]F─┤'"
+        sub MULTILINE_LAST_PROMPT_SUFFIX "'%$frame_color[$color]F─╯'"
+        sub RIGHT_PROMPT_LAST_SEGMENT_END_SYMBOL "' '"
+      fi
+      if (( left_frame )); then
+        sub MULTILINE_FIRST_PROMPT_PREFIX "'%$frame_color[$color]F╭─'"
+        sub MULTILINE_NEWLINE_PROMPT_PREFIX "'%$frame_color[$color]F├─'"
+        sub MULTILINE_LAST_PROMPT_PREFIX "'%$frame_color[$color]F╰─'"
+        sub LEFT_PROMPT_FIRST_SEGMENT_START_SYMBOL "' '"
+      fi
+    fi
+
+    if [[ $style == (classic|rainbow) ]]; then
+      if (( num_lines == 2 && ! left_frame )); then
+        uncomment prompt_char
+      else
+        uncomment vi_mode
+      fi
+    fi
+
+    (( empty_line )) && sub PROMPT_ADD_NEWLINE true || sub PROMPT_ADD_NEWLINE false
   fi
 
-  (( empty_line )) && sub PROMPT_ADD_NEWLINE true || sub PROMPT_ADD_NEWLINE false
+  sub INSTANT_PROMPT $instant_prompt
+  (( transient_prompt )) && sub TRANSIENT_PROMPT always
 
   local header=${(%):-"# Generated by Powerlevel10k configuration wizard on %D{%Y-%m-%d at %H:%M %Z}."}$'\n'
   header+="# Based on romkatv/powerlevel10k/config/p10k-$style.zsh"
@@ -1344,35 +1634,49 @@ function generate_config() {
   header+=$'.\n# Type `p10k configure` to generate another config.\n#'
 
   if [[ -e $__p9k_cfg_path ]]; then
-    unlink $__p9k_cfg_path || return 1
+    unlink $__p9k_cfg_path || return
   fi
   print -lr -- "$header" "$lines[@]" >$__p9k_cfg_path
 }
 
-function write_zshrc() {
-  if [[ -e $__p9k_zshrc ]]; then
-    local lines=(${(f)"$(<$__p9k_zshrc)"})
-    local f0=$__p9k_cfg_path
-    local f1=${(q)f0}
-    local f2=${(q-)f0}
-    local f3=${(qq)f0}
-    local f4=${(qqq)f0}
-    local g1=${${(q)__p9k_cfg_path}/#(#b)${(q)HOME}\//'~/'}
-    if [[ -n ${(@M)lines:#(#b)[^#]#([^[:IDENT:]]|)source[[:space:]]##($f1|$f2|$f3|$f4|$g1)(|[[:space:]]*|'#'*)} ]]; then
-      flowing +c No changes have been made to %4F$__p9k_zshrc_u%f because it already sources %2F$__p9k_cfg_path_u%f.
-      return
+function change_zshrc() {
+  (( write_zshrc )) || return 0
+
+  local tmp=$__p9k_zshrc.${(%):-%n}.tmp.$$
+  [[ ! -e $__p9k_zshrc ]] || cp -p $__p9k_zshrc $tmp || return
+
+  {
+    print -n >$tmp || return
+
+    if (( !zshrc_has_instant_prompt )); then
+      >>$tmp print -r -- "# Enable Powerlevel10k instant prompt. Should stay close to the top of ${(%)__p9k_zshrc_u}.
+# Initialization code that may require console input (password prompts, [y/n]
+# confirmations, etc.) must go above this block, everything else may go below.
+if [[ -r \"\${XDG_CACHE_HOME:-\$HOME/.cache}/p10k-instant-prompt-\${(%):-%n}.zsh\" ]]; then
+  source \"\${XDG_CACHE_HOME:-\$HOME/.cache}/p10k-instant-prompt-\${(%):-%n}.zsh\"
+fi" || return
     fi
+    if [[ -n $zshrc_content ]]; then
+      (( zshrc_has_instant_prompt )) || print >>$tmp || return
+      >>$tmp print -r -- $zshrc_content || return
+    fi
+    if (( !zshrc_has_cfg )); then
+      >>$tmp print -r -- "
+# To customize prompt, run \`p10k configure\` or edit ${(%)__p9k_cfg_path_u}.
+[[ ! -f ${(%)__p9k_cfg_path_u} ]] || source ${(%)__p9k_cfg_path_u}" || return
+    fi
+    zf_mv -f -- $tmp $__p9k_zshrc || return
+  } always {
+    zf_rm -f -- $tmp
+  }
+
+  if [[ -n $zshrc_backup_u ]]; then
+    print -rP ""
+    flowing +c See "%B${__p9k_zshrc_u//\\/\\\\}%b" changes:
+    print -rP  "
+  %2Fdiff%f %B$zshrc_backup_u%b %B$__p9k_zshrc_u%b"
   fi
-
-  local comments=(
-    "# To customize prompt, run \`p10k configure\` or edit $__p9k_cfg_path_u."
-  )
-  print -lrP -- "" $comments "[[ -f $__p9k_cfg_path_u ]] && source $__p9k_cfg_path_u" >>$__p9k_zshrc
-
-  print -rP ""
-  flowing +c The following lines have been appended to %4F$__p9k_zshrc_u%f:
-  print -rP ""
-  print -lrP -- '  '${^comments} "  %3F[[%f %B-f $__p9k_cfg_path_u%b %3F]]%f && %2Fsource%f %B$__p9k_cfg_path_u%b"
+  return 0
 }
 
 if (( force )); then
@@ -1384,9 +1688,11 @@ fi
 source $__p9k_root_dir/internal/icons.zsh || return
 
 while true; do
+  local instant_prompt=verbose zshrc_content= zshrc_backup= zshrc_backup_u=
+  local -i zshrc_has_cfg=0 zshrc_has_instant_prompt=0 write_zshrc=0
   local POWERLEVEL9K_MODE= style= config_backup= config_backup_u= gap_char=' '
   local left_subsep= right_subsep= left_tail= right_tail= left_head= right_head= show_time=
-  local -i num_lines=0 write_config=0 empty_line=0 color=2 left_frame=1 right_frame=1
+  local -i num_lines=0 empty_line=0 color=2 left_frame=1 right_frame=1 transient_prompt=0
   local -i cap_diamond=0 cap_python=0 cap_debian=0 cap_narrow_icons=0 cap_lock=0
   local -a extra_icons=('' '' '')
   local -a prefixes=('' '')
@@ -1431,47 +1737,56 @@ while true; do
   fi
   (( cap_python )) && options[-1]+=' + python'
   if (( cap_diamond )); then
+    left_sep=$right_triangle
+    right_sep=$left_triangle
     left_subsep=$right_angle
     right_subsep=$left_angle
     left_head=$right_triangle
     right_head=$left_triangle
   else
+    left_sep=
+    right_sep=
     left_subsep=$vertical_bar
     right_subsep=$vertical_bar
     left_head=$fade_out
     right_head=$fade_in
   fi
   _p9k_init_icons
-  ask_narrow_icons     || continue
-  ask_style            || continue
-  ask_color            || continue
-  ask_time             || continue
-  ask_separators       || continue
-  ask_heads            || continue
-  ask_tails            || continue
-  ask_num_lines        || continue
-  ask_gap_char         || continue
-  ask_frame            || continue
-  ask_empty_line       || continue
-  ask_extra_icons      || continue
-  ask_prefixes         || continue
-  ask_confirm          || continue
-  ask_config_overwrite || continue
+  ask_narrow_icons      || continue
+  ask_style             || continue
+  if [[ $style != pure ]]; then
+    ask_color           || continue
+    ask_time            || continue
+    ask_separators      || continue
+    ask_heads           || continue
+    ask_tails           || continue
+    ask_num_lines       || continue
+    ask_gap_char        || continue
+    ask_frame           || continue
+    ask_ornaments_color || continue
+    ask_empty_line      || continue
+    ask_extra_icons     || continue
+    ask_prefixes        || continue
+  fi
+  ask_transient_prompt  || continue
+  ask_instant_prompt    || continue
+  ask_config_overwrite  || continue
+  ask_zshrc_edit        || continue
   break
 done
 
 clear
 
-flowing +c Powerlevel10k configuration has been written to %2F$__p9k_cfg_path_u%f.
+flowing +c New config: "%B${__p9k_cfg_path_u//\\/\\\\}%b."
 if [[ -n $config_backup ]]; then
-  flowing +c The backup of the previuos version is at %3F$config_backup_u%f.
+  flowing +c Backup of the old config: "%B${config_backup_u//\\/\\\\}%b."
+fi
+if [[ -n $zshrc_backup ]]; then
+  flowing +c Backup of "%B${__p9k_zshrc_u//\\/\\\\}%b:" "%B${zshrc_backup_u//\\/\\\\}%b."
 fi
 
-if (( write_config )); then
-  generate_config || return
-fi
-
-write_zshrc || return
+generate_config || return
+change_zshrc || return
 
 print -rP ""
 flowing +c File feature requests and bug reports at "$(href https://github.com/romkatv/powerlevel10k/issues)."
